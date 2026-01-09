@@ -15,11 +15,28 @@ window.addEventListener('DOMContentLoaded', function () {
     }, 3000); // 3 seconds delay
 });
 
-// AWS Backend API Configuration
-const AWS_API_BASE = 'https://j8wnxa1ezd.execute-api.us-east-1.amazonaws.com';
+// AWS Backend API Configuration - Loaded dynamically from server config
+let AWS_API_BASE = 'https://j8wnxa1ezd.execute-api.us-east-1.amazonaws.com'; // Fallback default
+
+// Fetch server configuration on page load
+async function loadServerConfig() {
+    try {
+        const response = await fetch('/api/config');
+        if (response.ok) {
+            const config = await response.json();
+            AWS_API_BASE = config.awsEndpoint;
+            console.log('✅ Server config loaded. AWS Endpoint:', AWS_API_BASE);
+        }
+    } catch (error) {
+        console.warn('⚠️ Failed to load server config, using fallback:', error);
+    }
+}
+
+
 
 // API keys are now stored securely on the backend server (server.js)
 // The backend handles all API calls to Gemini, keeping keys safe
+
 
 
 class ClimateDashboard {
@@ -400,6 +417,11 @@ class ClimateDashboard {
             icon: customIcon,
             title: 'Your Location'
         }).addTo(this.map);
+
+        // Fix map rendering on mobile - ensure proper size calculation
+        setTimeout(() => {
+            this.map.invalidateSize();
+        }, 100);
 
         document.getElementById('map-loading').style.display = 'none';
     }
@@ -1103,7 +1125,9 @@ class ClimateDashboard {
     }
 }
 
-// Initialize dashboard when page loads
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize dashboard when page loads - after config is loaded
+document.addEventListener('DOMContentLoaded', async () => {
+    // Ensure config is loaded before initializing dashboard
+    await loadServerConfig();
     new ClimateDashboard();
 });

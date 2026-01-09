@@ -64,6 +64,14 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
+// Config endpoint - provides public configuration to frontend
+app.get('/api/config', (req, res) => {
+    res.json({
+        awsEndpoint: process.env.AWS_API_ENDPOINT || 'https://j8wnxa1ezd.execute-api.us-east-1.amazonaws.com',
+        nodeEnv: process.env.NODE_ENV || 'development'
+    });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });

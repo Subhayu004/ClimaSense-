@@ -57,10 +57,12 @@ body {
     gap: 1rem;
 }
 
-/* Animated Refresh Button (from Uiverse.io by andrew-demchenk0) */
+/* Animated Refresh Button (from Uiverse.io by andrew-demchenk0) - Made Responsive */
 .button {
     position: relative;
-    width: 130px;
+    min-width: 110px;
+    max-width: 150px;
+    width: auto;
     height: 36px;
     cursor: pointer;
     display: flex;
@@ -69,6 +71,7 @@ body {
     background-color: #0082FC;
     overflow: hidden;
     border-radius: 0.5rem;
+    padding: 0 0.5rem;
 }
 
 .button,
@@ -78,15 +81,17 @@ body {
 }
 
 .button .button__text {
-    transform: translateX(22px);
+    transform: translateX(18px);
     color: #fff;
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
+    white-space: nowrap;
 }
 
 .button .button__icon {
     position: absolute;
-    transform: translateX(95px);
+    right: 0;
+    transform: translateX(calc(100% - 35px));
     height: 100%;
     width: 35px;
     background-color: #0078E8;
@@ -96,7 +101,7 @@ body {
 }
 
 .button .svg {
-    width: 18px;
+    width: clamp(16px, 3vw, 18px);
     fill: #fff;
 }
 
@@ -109,7 +114,7 @@ body {
 }
 
 .button:hover .button__icon {
-    width: 128px;
+    width: 100%;
     transform: translateX(0);
 }
 
@@ -825,6 +830,27 @@ body {
         font-size: 1rem;
     }
 
+    /* Responsive refresh button for mobile */
+    .button {
+        min-width: 90px;
+        max-width: 120px;
+        height: 34px;
+        padding: 0 0.375rem;
+    }
+
+    .button .button__text {
+        font-size: 0.75rem;
+        transform: translateX(12px);
+    }
+
+    .button .button__icon {
+        width: 30px;
+    }
+
+    .button .svg {
+        width: 16px;
+    }
+
     .main-content {
         padding: 1rem;
     }
@@ -837,6 +863,30 @@ body {
     .map-controls-wrapper {
         width: 100%;
         justify-content: space-between;
+    }
+
+    /* Fix map visibility on mobile */
+    .map {
+        height: 350px !important;
+        min-height: 350px;
+    }
+
+    .map-container {
+        min-height: 450px;
+    }
+
+    .leaflet-container {
+        height: 350px !important;
+        min-height: 350px;
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .chart-container {
+        height: 250px;
     }
 }
 
