@@ -68,33 +68,31 @@ It answers questions like:
 
 ## 🧩 Architecture Overview
 
-Web Frontend (Browser)
-  ├─ Location Detection (Geolocation API)
-  ├─ Dashboard UI (Maps, Charts, AI Panel)
-  │
-  ▼
-Cloudflare Pages (Frontend Hosting)
-  │
-  ▼
-Cloudflare Worker (Secure API Proxy)
-  ├─ Handles CORS
-  ├─ Protects API keys
-  ├─ Routes requests securely
-  │
-  ▼
+User (Web Browser)
+   │
+   │  Real-time Location (Geolocation API)
+   ▼
+Frontend Dashboard (HTML / CSS / JavaScript)
+   │
+   │  API Requests (/api/*)
+   ▼
+Cloudflare Worker (API Proxy Layer)
+   │
+   │  • Handles CORS
+   │  • Protects API Keys
+   │  • Routes Requests Securely
+   ▼
 AWS API Gateway
-  │
-  ▼
+   │
+   ▼
 AWS Lambda Functions
-  ├─ Climate Data Fetching
-  ├─ Risk Analysis Logic
-  ├─ AI Explanation Trigger
-  │
-  ├─ External APIs
-  │   ├─ OpenWeather (Climate Data)
-  │   └─ Gemini AI (Risk Explanation)
-  │
-  ▼
+   │
+   ├─ Fetch Real-time Climate Data (OpenWeather API)
+   ├─ Perform Climate Risk Analysis
+   ├─ Generate AI-based Risk Explanation (Gemini)
+   │
+   ▼
 AWS DynamoDB
-  └─ Climate Data Storage
+   │
+   └─ Stores Climate Data & Analysis Results
 
