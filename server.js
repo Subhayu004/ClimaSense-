@@ -17,7 +17,7 @@ app.post('/api/chat', async (req, res) => {
         const { message, context } = req.body;
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-        const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+        const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
         if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
             return res.status(500).json({
@@ -33,13 +33,33 @@ app.post('/api/chat', async (req, res) => {
             body: JSON.stringify({
                 contents: [{
                     parts: [{
-                        text: `You are an expert AI climate assistant for a Climate Risk Dashboard. You help users understand climate risks, weather patterns, and environmental data. ${context ? '\n' + context : ''} Provide clear, accurate, and helpful information. Keep responses concise (2-4 sentences) and actionable. Be friendly and professional.\n\nUser question: ${message}`
+                        text: `You are an expert AI climate assistant for a Climate Risk Dashboard named ClimaSense. You help users understand climate risks, weather patterns, and environmental data based on the provided dashboard context. ${context ? '\n\nDashboard Context:\n' + context : ''}\n\nUser Question: ${message}\n\nInstructions: Provide clear, scientifically accurate, and helpful information. Keep responses concise (2-4 sentences). Be friendly and professional. If the question is unrelated to climate or environmental issues, politely redirect the focus to climate matters.`
                     }]
                 }],
                 generationConfig: {
                     temperature: 0.7,
-                    maxOutputTokens: 500
-                }
+                    topP: 0.95,
+                    topK: 40,
+                    maxOutputTokens: 800,
+                },
+                safetySettings: [
+                    {
+                        category: "HARM_CATEGORY_HARASSMENT",
+                        threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_HATE_SPEECH",
+                        threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                        threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                    }
+                ]
             })
         });
 
