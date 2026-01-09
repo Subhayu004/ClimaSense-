@@ -1,109 +1,75 @@
-# ClimaSense - Climate Risk Dashboard
+# 🌦️ ClimaSense — AI-Powered Climate Decision Assistant
 
-A modern, interactive climate risk dashboard with AI-powered assistance.
+ClimaSense is a smart, cross-platform application built with Flutter that helps users understand weather, climate patterns, and environmental risks in a clear, human-friendly way.  
+The goal is simple: **turn raw climate data into decisions people can actually use.**
 
-## 🚀 Features
+---
 
-- 🌍 Real-time location detection with reverse geocoding
-- 🗺️ Interactive climate risk heatmap
-- 📊 Historical data visualization (Temperature & Rainfall 2005-2025)
-- 🤖 AI climate assistant powered by Google Gemini
-- ⚠️ Risk assessments for Heat, Flood, and Drought
-- 📈 Real CSV data integration
+## 🚀 Why ClimaSense?
 
-## 🛠️ Setup & Deployment
+Most weather and climate apps:
+- dump raw data
+- assume users understand technical terms
+- don’t explain *what the data means for you*
 
-### Local Development
+ClimaSense focuses on **interpretation**, not just information.
 
-1. **Clone the repository**
-```bash
-git clone https://github.com/Subhayu004/climasense.git
-cd climasense
-```
+It answers questions like:
+- *Should I travel today?*
+- *Is this weather safe for outdoor work?*
+- *What does this climate trend actually imply?*
 
-2. **Install dependencies**
-```bash
-npm install
-```
+---
 
-3. **Create .env file**
-```bash
-cp .env.example .env
-```
+## 🧠 Key Features
 
-4. **Add your API keys to .env**
-```env
-GEMINI_API_KEY=your_actual_gemini_api_key_here
-PORT=3000
-NODE_ENV=development
-```
+- 📊 **Climate & Weather Insights**  
+  Converts complex climate data into simple explanations.
 
-5. **Run the server**
-```bash
-npm start
-```
+- 🤖 **AI-Powered Explanation Layer**  
+  Uses an AI service to explain forecasts, risks, and trends in plain language.
 
-6. **Open browser**
-```
-http://localhost:3000
-```
+- 🔄 **Real-time Data Handling**  
+  Fetches and processes live weather and environmental data.
 
-### Deploy to Render
+- 📱 **Cross-Platform UI**  
+  Built with Flutter — runs on Android, iOS, and Web from a single codebase.
 
-1. **Push to GitHub** (without .env file)
-```bash
-git add .
-git commit -m "Deploy to Render"
-git push origin main
-```
+- ☁️ **Cloud-Based Backend**  
+  Secure APIs and services hosted on AWS.
 
-2 **Create New Web Service on Render**
-   - Connect your GitHub repository
-   - Build Command: `npm install`
-   - Start Command: `npm start`
+---
 
-3. **Add Environment Variables in Render Dashboard**
-   - Go to Environment tab
-   - Add: `GEMINI_API_KEY` = your actual key
-   - Add: `NODE_ENV` = production
+## 🛠️ Tech Stack
 
-4. **Deploy!**
-   - Render will automatically build and deploy
-   - Your app will be live at `https://your-app.onrender.com`
+### Frontend
+- **Flutter**
+- **Dart**
+- Material UI
 
-## 🔒 Security
+### Backend & Cloud
+- **AWS Lambda** — serverless API logic  
+- **AWS API Gateway** — secure REST endpoints  
+- **AWS IAM** — controlled access & permissions  
 
-✅ API keys are stored in `.env` (never committed to Git)  
-✅ Backend proxy keeps keys secure  
-✅ Frontend calls backend, not external APIs directly  
-✅ `.gitignore` prevents sensitive files from being pushed  
+### Database & Auth
+- **Firebase Authentication**
+- **Cloud Firestore**
 
-## 📁 Project Structure
+### AI Layer
+- AI API (LLM-based) for climate explanation & summarization
 
-```
-climasense/
-├── server.js           # Express backend server
-├── script.js           # Frontend JavaScript
-├── index.html          # Main HTML file
-├── style.css           # Styles
-├── package.json        # Dependencies
-├── .env.example        # Environment variables template
-├── .env               # Your actual API keys (git ignored)
-├── Data/              # CSV data files
-│   ├── Temperature data.csv
-│   └── SP-India-Rainfall-act-dep_1901_to_2019_0.csv
-└── Assets/            # Images and assets
-```
+---
 
-## 🌐 API Endpoints
+## 🧩 Architecture Overview
 
-- `POST /api/chat` - AI chat endpoint (proxies to Gemini)
-- `GET /api/health` - Health check endpoint
-
-## 👥 Credits
-
-Made by **Subhayu and Sreyasi**
-
-## 📄 License
-
-MIT License
+```text
+Flutter App
+   ↓
+API Gateway (AWS)
+   ↓
+Lambda Functions
+   ↓
+External Climate APIs / AI APIs
+   ↓
+Firebase (Auth + Firestore)
