@@ -43,9 +43,9 @@ It answers questions like:
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Flutter**
-- **Dart**
-- Material UI
+- **HTML**
+- **CSS**
+
 
 ### Backend & Cloud
 - **AWS Lambda** — serverless API logic  
@@ -53,8 +53,13 @@ It answers questions like:
 - **AWS IAM** — controlled access & permissions  
 
 ### Database & Auth
-- **Firebase Authentication**
-- **Cloud Firestore**
+- **Dynamo DB**
+
+### APIs Used :
+- **OpenWeather** - For Weather Info
+- **Gemini** - For AI
+- **MapTiler** - For location Visualization
+- **AWS API GateWay Endpoints*** - To use the AWS backend functionalities efficiently 
 
 ### AI Layer
 - AI API (LLM-based) for climate explanation & summarization
@@ -63,13 +68,33 @@ It answers questions like:
 
 ## 🧩 Architecture Overview
 
-```text
-Flutter App
-   ↓
-API Gateway (AWS)
-   ↓
-Lambda Functions
-   ↓
-External Climate APIs / AI APIs
-   ↓
-Firebase (Auth + Firestore)
+Web Frontend (Browser)
+  ├─ Location Detection (Geolocation API)
+  ├─ Dashboard UI (Maps, Charts, AI Panel)
+  │
+  ▼
+Cloudflare Pages (Frontend Hosting)
+  │
+  ▼
+Cloudflare Worker (Secure API Proxy)
+  ├─ Handles CORS
+  ├─ Protects API keys
+  ├─ Routes requests securely
+  │
+  ▼
+AWS API Gateway
+  │
+  ▼
+AWS Lambda Functions
+  ├─ Climate Data Fetching
+  ├─ Risk Analysis Logic
+  ├─ AI Explanation Trigger
+  │
+  ├─ External APIs
+  │   ├─ OpenWeather (Climate Data)
+  │   └─ Gemini AI (Risk Explanation)
+  │
+  ▼
+AWS DynamoDB
+  └─ Climate Data Storage
+
