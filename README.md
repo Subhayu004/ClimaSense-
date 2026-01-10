@@ -1,118 +1,82 @@
-# ClimaSense - Climate Risk Dashboard
+# 🌍 ClimaSense — Climate Risk Visualization & Analysis Platform
 
-A modern climate risk assessment dashboard with AI-powered insights using Gemini API.
+ClimaSense is a **climate intelligence dashboard** that turns real-time climate conditions into **understandable climate risk insights** using maps, risk analysis, and AI explanations.
 
-## 🚀 Quick Start
+Many existing sources (IPCC reports, NASA/NOAA portals) are **too complex for non-experts**. ClimaSense bridges that gap by making climate risk **simple, visual, and actionable**.
 
-### Prerequisites
-- Node.js (v18 or higher)
-- npm
-- Gemini API Key
+---
 
-### Installation
+## ✨ Features (MVP)
 
-1. Clone the repository:
-```bash
-git clone https://github.com/Subhayu004/ClimaSense-.git
-cd ClimaSense-
+- 📍 **Real-time location detection** (browser geolocation)
+- 🌡️ **Live climate data** (temperature, humidity, wind speed, rainfall)
+- ⚠️ **Climate risk assessment** (Low / Moderate / High)
+- 🗺️ **Interactive map with Heatmap toggle**
+- 📊 **Climate trends** (temperature & rainfall charts)
+- 🤖 **AI verdict + confidence score** (Gemini-powered explanation)
+
+---
+
+## 🚀 MVP Note (Important)
+
+This repository is an **MVP demo**, not the final full-scale product.
+
+- ✅ Uses **limited API calls** (rate-limited services)
+- ✅ Includes **some sample/dummy heatmap points** for visualization demo
+- ✅ Backend APIs + full system flow are real & functional
+
+Future versions will add full historical datasets, broader region coverage, and alerts.
+
+---
+
+## 🧩 Architecture Overview
+
+```text
+User (Web Browser)
+   │
+   │  Real-time Location (Geolocation API)
+   ▼
+Frontend Dashboard (HTML / CSS / JavaScript)
+   │
+   │  API Requests (/api/*)
+   ▼
+Cloudflare Worker (Secure API Proxy Layer)
+   │
+   │  • Handles CORS
+   │  • Protects API Keys
+   │  • Routes Requests Securely
+   ▼
+AWS API Gateway
+   │
+   ▼
+AWS Lambda Functions
+   │
+   ├─ Fetch Real-time Climate Data (OpenWeather API)
+   ├─ Perform Climate Risk Analysis
+   ├─ Generate AI-based Explanation (Gemini)
+   │
+   ▼
+AWS DynamoDB
+   └─ Stores Climate Data & Analysis Records
 ```
+## 🛠️ TechStack
 
-2. Install dependencies:
-```bash
-npm install
-```
+ ### Backend & Cloud
+- AWS Lambda — serverless backend logic
 
-3. Configure environment variables:
-   - Copy `.env.example` to `.env`
-   - Add your Gemini API key:
-```env
-GEMINI_API_KEY=your_actual_gemini_api_key_here
-PORT=3000
-NODE_ENV=production
-```
+- AWS API Gateway — REST endpoints for frontend integration
 
-4. Start the server:
-```bash
-npm start
-```
+- AWS IAM — access control and permissions
 
-5. Open your browser:
-   - Visit `http://localhost:3000`
+ ### Database
+ - AWS DynamoDB — stores climate records 
+ ### APIs Used
+- OpenWeather API — real-time climate/weather info
 
-## ⚠️ IMPORTANT: Do NOT Use Live Server!
+- Gemini AI API — risk explanation & summarization
 
-**Live Server only serves static files and will NOT run the backend server.**
+- MapTiler (or Map Provider) — map visualization in frontend
 
-The AI chat requires the Node.js backend to be running. Always use:
-```bash
-npm start
-```
 
-## 🌐 Deploying to Render
+ 
 
-### Step 1: Create Web Service
-1. Go to [Render Dashboard](https://dashboard.render.com/)
-2. Click "New +" → "Web Service"
-3. Connect your GitHub repository
-
-### Step 2: Configure Build Settings
-- **Environment**: `Node`
-- **Build Command**: `npm install`
-- **Start Command**: `npm start`
-
-### Step 3: Set Environment Variables
-In Render dashboard, add these environment variables:
-- `GEMINI_API_KEY` = `your_gemini_api_key`
-- `NODE_ENV` = `production`
-- `PORT` = `3000` (or leave blank, Render sets this automatically)
-
-### Step 4: Deploy
-- Click "Create Web Service"
-- Wait for deployment to complete
-- Your app will be live at `https://your-app-name.onrender.com`
-
-## 🎯 Features
-
-- **Real-time Climate Data**: Temperature, humidity, wind speed, rainfall
-- **Risk Assessment**: Heat, flood, and drought risk analysis
-- **Interactive Map**: Heatmap visualization with climate risk zones
-- **AI Assistant**: Powered by Gemini API for climate insights
-- **Historical Trends**: Temperature and rainfall charts (21 years of data)
-
-## 🔑 Getting Gemini API Key
-
-1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Click "Create API Key"
-3. Copy the key and add it to your `.env` file
-
-## 📁 Project Structure
-
-```
-ClimaSense/
-├── server.js           # Node.js backend server
-├── index.html          # Main HTML file
-├── style.css           # Styles
-├── script.js           # Frontend JavaScript
-├── package.json        # Dependencies
-├── .env               # Environment variables (DO NOT COMMIT!)
-├── .env.example       # Environment template
-└── Data/              # CSV data files
-    ├── Temperature data.csv
-    └── SP-India-Rainfall-act-dep_1901_to_2019_0.csv
-```
-
-## 🛠️ Technology Stack
-
-- **Frontend**: HTML, CSS, JavaScript
-- **Backend**: Node.js, Express
-- **Maps**: Leaflet.js with OpenStreetMap
-- **Charts**: Chart.js
-- **AI**: Google Gemini API
-
-## 📝 License
-
-MIT License
-
-## 👥 Authors
-
-Subhayu and Sreyasi
