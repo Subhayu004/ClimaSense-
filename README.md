@@ -1,98 +1,118 @@
-# 🌦️ ClimaSense — AI-Powered Climate Decision Assistant
+# ClimaSense - Climate Risk Dashboard
 
-ClimaSense is a smart, cross-platform application built with Flutter that helps users understand weather, climate patterns, and environmental risks in a clear, human-friendly way.  
-The goal is simple: **turn raw climate data into decisions people can actually use.**
+A modern climate risk assessment dashboard with AI-powered insights using Gemini API.
 
----
+## 🚀 Quick Start
 
-## 🚀 Why ClimaSense?
+### Prerequisites
+- Node.js (v18 or higher)
+- npm
+- Gemini API Key
 
-Most weather and climate apps:
-- dump raw data
-- assume users understand technical terms
-- don’t explain *what the data means for you*
+### Installation
 
-ClimaSense focuses on **interpretation**, not just information.
+1. Clone the repository:
+```bash
+git clone https://github.com/Subhayu004/ClimaSense-.git
+cd ClimaSense-
+```
 
-It answers questions like:
-- *Should I travel today?*
-- *Is this weather safe for outdoor work?*
-- *What does this climate trend actually imply?*
+2. Install dependencies:
+```bash
+npm install
+```
 
----
+3. Configure environment variables:
+   - Copy `.env.example` to `.env`
+   - Add your Gemini API key:
+```env
+GEMINI_API_KEY=your_actual_gemini_api_key_here
+PORT=3000
+NODE_ENV=production
+```
 
-## 🧠 Key Features
+4. Start the server:
+```bash
+npm start
+```
 
-- 📊 **Climate & Weather Insights**  
-  Converts complex climate data into simple explanations.
+5. Open your browser:
+   - Visit `http://localhost:3000`
 
-- 🤖 **AI-Powered Explanation Layer**  
-  Uses an AI service to explain forecasts, risks, and trends in plain language.
+## ⚠️ IMPORTANT: Do NOT Use Live Server!
 
-- 🔄 **Real-time Data Handling**  
-  Fetches and processes live weather and environmental data.
+**Live Server only serves static files and will NOT run the backend server.**
 
-- 📱 **Cross-Platform UI**  
-  Built with Flutter — runs on Android, iOS, and Web from a single codebase.
+The AI chat requires the Node.js backend to be running. Always use:
+```bash
+npm start
+```
 
-- ☁️ **Cloud-Based Backend**  
-  Secure APIs and services hosted on AWS.
+## 🌐 Deploying to Render
 
----
+### Step 1: Create Web Service
+1. Go to [Render Dashboard](https://dashboard.render.com/)
+2. Click "New +" → "Web Service"
+3. Connect your GitHub repository
 
-## 🛠️ Tech Stack
+### Step 2: Configure Build Settings
+- **Environment**: `Node`
+- **Build Command**: `npm install`
+- **Start Command**: `npm start`
 
-### Frontend
-- **HTML**
-- **CSS**
+### Step 3: Set Environment Variables
+In Render dashboard, add these environment variables:
+- `GEMINI_API_KEY` = `your_gemini_api_key`
+- `NODE_ENV` = `production`
+- `PORT` = `3000` (or leave blank, Render sets this automatically)
 
+### Step 4: Deploy
+- Click "Create Web Service"
+- Wait for deployment to complete
+- Your app will be live at `https://your-app-name.onrender.com`
 
-### Backend & Cloud
-- **AWS Lambda** — serverless API logic  
-- **AWS API Gateway** — secure REST endpoints  
-- **AWS IAM** — controlled access & permissions  
+## 🎯 Features
 
-### Database & Auth
-- **Dynamo DB**
+- **Real-time Climate Data**: Temperature, humidity, wind speed, rainfall
+- **Risk Assessment**: Heat, flood, and drought risk analysis
+- **Interactive Map**: Heatmap visualization with climate risk zones
+- **AI Assistant**: Powered by Gemini API for climate insights
+- **Historical Trends**: Temperature and rainfall charts (21 years of data)
 
-### APIs Used :
-- **OpenWeather** - For Weather Info
-- **Gemini** - For AI
-- **MapTiler** - For location Visualization
-- **AWS API GateWay Endpoints*** - To use the AWS backend functionalities efficiently 
+## 🔑 Getting Gemini API Key
 
-### AI Layer
-- AI API (LLM-based) for climate explanation & summarization
+1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Click "Create API Key"
+3. Copy the key and add it to your `.env` file
 
----
+## 📁 Project Structure
 
-## 🧩 Architecture Overview
+```
+ClimaSense/
+├── server.js           # Node.js backend server
+├── index.html          # Main HTML file
+├── style.css           # Styles
+├── script.js           # Frontend JavaScript
+├── package.json        # Dependencies
+├── .env               # Environment variables (DO NOT COMMIT!)
+├── .env.example       # Environment template
+└── Data/              # CSV data files
+    ├── Temperature data.csv
+    └── SP-India-Rainfall-act-dep_1901_to_2019_0.csv
+```
 
-User (Web Browser)
-   │
-   │  Real-time Location (Geolocation API)
-   ▼
-Frontend Dashboard (HTML / CSS / JavaScript)
-   │
-   │  API Requests (/api/*)
-   ▼
-Cloudflare Worker (API Proxy Layer)
-   │
-   │  • Handles CORS
-   │  • Protects API Keys
-   │  • Routes Requests Securely
-   ▼
-AWS API Gateway
-   │
-   ▼
-AWS Lambda Functions
-   │
-   ├─ Fetch Real-time Climate Data (OpenWeather API)
-   ├─ Perform Climate Risk Analysis
-   ├─ Generate AI-based Risk Explanation (Gemini)
-   │
-   ▼
-AWS DynamoDB
-   │
-   └─ Stores Climate Data & Analysis Results
+## 🛠️ Technology Stack
 
+- **Frontend**: HTML, CSS, JavaScript
+- **Backend**: Node.js, Express
+- **Maps**: Leaflet.js with OpenStreetMap
+- **Charts**: Chart.js
+- **AI**: Google Gemini API
+
+## 📝 License
+
+MIT License
+
+## 👥 Authors
+
+Subhayu and Sreyasi
