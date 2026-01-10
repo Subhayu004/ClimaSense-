@@ -17,13 +17,15 @@ app.post('/api/chat', async (req, res) => {
         const { message, context } = req.body;
 
         const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-        const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+        const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
-        if (!GEMINI_API_KEY || GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+        if (!GEMINI_API_KEY || GEMINI_API_KEY === 'GEMINI_API_KEY') {
             return res.status(500).json({
                 error: 'API key not configured. Please set GEMINI_API_KEY in environment variables.'
             });
         }
+
+        console.log('API Key loaded:', GEMINI_API_KEY ? `${GEMINI_API_KEY.substring(0, 10)}...` : 'NOT LOADED');
 
         const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
             method: 'POST',
@@ -64,6 +66,8 @@ app.post('/api/chat', async (req, res) => {
         });
 
         if (!response.ok) {
+            const errorBody = await response.text();
+            console.error(`Gemini API Error ${response.status}:`, errorBody);
             throw new Error(`Gemini API error: ${response.status}`);
         }
 
