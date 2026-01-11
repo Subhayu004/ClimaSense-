@@ -188,6 +188,34 @@ class ClimateDashboard {
             const locationInfo = document.getElementById('location-info');
             locationInfo.innerHTML = '<div class="loading">Detecting location...</div>';
 
+            // Detect if on mobile device
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+            // Check if using HTTPS (required for geolocation on mobile browsers)
+            const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+
+            // Warn about HTTPS requirement on mobile
+            if (isMobile && !isSecure) {
+                console.warn('⚠️ Geolocation requires HTTPS on mobile browsers');
+                locationInfo.innerHTML = `
+                    <div class="error" style="font-size: 0.85rem;">
+                        <strong>Location unavailable</strong><br>
+                        <span style="font-size: 0.75rem;">Mobile browsers require HTTPS for location access. Using default location.</span>
+                    </div>
+                `;
+                // Use default location
+                this.currentLocation = { lat: 40.7128, lng: -74.0060 };
+                resolve(this.currentLocation);
+                return;
+            }
+
+            // Configure geolocation options based on device type
+            const geoOptions = {
+                timeout: isMobile ? 30000 : 15000, // Longer timeout for mobile (30s vs 15s)
+                enableHighAccuracy: !isMobile, // High accuracy can be slow on mobile
+                maximumAge: isMobile ? 300000 : 0 // Allow 5-minute cached position on mobile for faster results
+            };
+
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     this.currentLocation = {
@@ -256,12 +284,36 @@ class ClimateDashboard {
                     resolve(this.currentLocation);
                 },
                 (error) => {
-                    locationInfo.innerHTML = '<div class="error">Location access denied</div>';
+                    // Handle different error types with specific messages
+                    let errorMessage = 'Location access denied';
+
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = isMobile
+                                ? 'Location permission denied. Please enable location in your browser settings.'
+                                : 'Location access denied. Please allow location access.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = 'Location information unavailable. Using default location.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = isMobile
+                                ? 'Location request timed out. Please ensure GPS is enabled.'
+                                : 'Location request timed out.';
+                            break;
+                        default:
+                            errorMessage = 'Unable to retrieve location. Using default location.';
+                    }
+
+                    console.warn('Geolocation error:', error.code, error.message);
+
+                    locationInfo.innerHTML = `<div class="error" style="font-size: 0.85rem;">${errorMessage}</div>`;
+
                     // Default to New York if location fails
                     this.currentLocation = { lat: 40.7128, lng: -74.0060 };
                     resolve(this.currentLocation);
                 },
-                { timeout: 10000, enableHighAccuracy: true }
+                geoOptions
             );
         });
     }
