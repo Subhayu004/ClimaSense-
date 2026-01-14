@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClimaSense - Climate Risk Dashboard</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="Assets/logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
@@ -172,6 +173,15 @@
                                 <div class="map-controls">
                                     <button id="normal-map-btn" class="map-control-btn">Normal Map</button>
                                     <button id="heatmap-btn" class="map-control-btn active">Heatmap Mode</button>
+                                </div>
+                                <!-- NEW: Heatmap Layer Selector -->
+                                <div class="heatmap-layer-controls" id="heatmap-layer-controls" style="display: flex;">
+                                    <button id="regional-layer-btn" class="layer-btn active">
+                                        <i class="fas fa-globe"></i> Regional Risk
+                                    </button>
+                                    <button id="user-layer-btn" class="layer-btn">
+                                        <i class="fas fa-map-marker-alt"></i> My Location
+                                    </button>
                                 </div>
                                 <div class="map-legend">
                                     <div class="legend-item">
@@ -397,12 +407,11 @@
         </footer>
 
 
-        <!-- Leaflet CSS -->
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-        <!-- Leaflet JS -->
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-        <!-- Leaflet Heatmap Plugin -->
-        <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+        <!-- Google Maps JavaScript API with Visualization Library -->
+        <script
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyANVy0DaoP9XvL_9T2NAUXx_UW1UgX3_7k&libraries=visualization"
+            async defer>
+            </script>
         <!-- Chart.js -->
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script src="script.js"></script>

@@ -43,7 +43,9 @@ class ClimateDashboard {
     constructor() {
         this.map = null;
         this.heatmap = null;
-        this.heatLayer = null;
+        this.heatLayer = null;                    // Regional heatmap layer
+        this.userLocationHeatLayer = null;        // NEW: User location heatmap layer
+        this.currentHeatmapLayer = 'regional';     // NEW: 'regional' or 'user'
         this.chart = null;
         this.currentLocation = null;
         this.currentClimate = null;
@@ -111,6 +113,15 @@ class ClimateDashboard {
         if (normalMapBtn && heatmapBtn) {
             normalMapBtn.addEventListener('click', () => this.toggleMapMode(false));
             heatmapBtn.addEventListener('click', () => this.toggleMapMode(true));
+        }
+
+        // NEW: Heatmap layer toggle controls
+        const regionalLayerBtn = document.getElementById('regional-layer-btn');
+        const userLayerBtn = document.getElementById('user-layer-btn');
+
+        if (regionalLayerBtn && userLayerBtn) {
+            regionalLayerBtn.addEventListener('click', () => this.switchHeatmapLayer('regional'));
+            userLayerBtn.addEventListener('click', () => this.switchHeatmapLayer('user'));
         }
 
         // Profile modal
@@ -443,39 +454,63 @@ class ClimateDashboard {
             throw new Error('Location not available');
         }
 
+        // Wait for Google Maps to load if not already loaded
+        await this.waitForGoogleMaps();
+
         const mapElement = document.getElementById('map');
 
-        // Initialize Leaflet map with MapTiler tiles
-        this.map = L.map(mapElement).setView(
-            [this.currentLocation.lat, this.currentLocation.lng],
-            10
-        );
-
-        // Add OpenStreetMap tile layer
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 18,
-        }).addTo(this.map);
-
-        // Add custom marker for current location
-        const customIcon = L.divIcon({
-            className: 'custom-marker',
-            html: '<div style="background-color: #3b82f6; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
+        // Initialize Google Maps
+        this.map = new google.maps.Map(mapElement, {
+            center: { lat: this.currentLocation.lat, lng: this.currentLocation.lng },
+            zoom: 10,
+            mapTypeControl: true,
+            streetViewControl: false,
+            fullscreenControl: true,
+            styles: [
+                {
+                    featureType: 'poi',
+                    elementType: 'labels',
+                    stylers: [{ visibility: 'off' }]
+                }
+            ]
         });
 
-        L.marker([this.currentLocation.lat, this.currentLocation.lng], {
-            icon: customIcon,
-            title: 'Your Location'
-        }).addTo(this.map);
+        // Store markers array for Normal Map mode
+        this.markers = [];
 
-        // Fix map rendering on mobile - ensure proper size calculation
-        setTimeout(() => {
-            this.map.invalidateSize();
-        }, 100);
+        // Add custom marker for current location
+        new google.maps.Marker({
+            position: { lat: this.currentLocation.lat, lng: this.currentLocation.lng },
+            map: this.map,
+            title: 'Your Location',
+            icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                fillColor: '#3b82f6',
+                fillOpacity: 1,
+                strokeColor: '#ffffff',
+                strokeWeight: 3,
+                scale: 10
+            },
+            zIndex: 1000
+        });
 
         document.getElementById('map-loading').style.display = 'none';
+    }
+
+    // Wait for Google Maps API to load
+    waitForGoogleMaps() {
+        return new Promise((resolve) => {
+            if (typeof google !== 'undefined' && google.maps) {
+                resolve();
+            } else {
+                const checkInterval = setInterval(() => {
+                    if (typeof google !== 'undefined' && google.maps) {
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                }, 100);
+            }
+        });
     }
 
     async loadMapData() {
@@ -497,11 +532,12 @@ class ClimateDashboard {
 
             // Check if data is valid and has expected structure
             if (Array.isArray(data) && data.length > 0) {
-                // Transform backend data to match expected format
+                // Transform backend data for Google Maps (lon → lng conversion)
                 this.mapData = data.map(point => ({
                     lat: point.lat || point.latitude,
                     lng: point.lon || point.lng || point.longitude,
-                    severity: this.getSeverityValue(point.severity),
+                    severity: point.severity, // Keep original severity string
+                    weight: this.getSeverityWeight(point.severity), // Add weight for heatmap
                     color: point.color || this.getSeverityColor(point.severity)
                 }));
 
@@ -512,7 +548,9 @@ class ClimateDashboard {
                 throw new Error('Invalid data format from backend');
             }
 
-            this.createHeatmap();
+            // Render based on current mode
+            console.log('Map data loaded successfully, rendering...');
+            this.renderMap();
         } catch (error) {
             console.error('Failed to load map data from backend:', error);
             console.log('Using generated mock data as fallback');
@@ -520,7 +558,7 @@ class ClimateDashboard {
             // Use mock data as fallback
             this.mapData = this.generateMockMapData();
             console.log('Generated mock data points:', this.mapData.length);
-            this.createHeatmap();
+            this.renderMap();
         }
     }
 
@@ -533,81 +571,407 @@ class ClimateDashboard {
         return severityMap[severity] || '#10b981';
     }
 
-    getSeverityValue(severity) {
+    getSeverityWeight(severity) {
+        // Map severity to weight for Google Maps heatmap
+        // High intensity areas get higher weights
         const severityMap = {
-            'High': 0.9,
-            'Moderate': 0.5,
-            'Low': 0.2
+            'High': 3,
+            'Moderate': 2,
+            'Low': 1
         };
-        return severityMap[severity] || 0.5;
+        return severityMap[severity] || 2; // Default to Moderate if unknown
     }
 
     generateMockMapData() {
         const data = [];
         const center = this.currentLocation;
+        const severities = ['Low', 'Moderate', 'High'];
 
         for (let i = 0; i < 50; i++) {
             const lat = center.lat + (Math.random() - 0.5) * 0.2;
             const lng = center.lng + (Math.random() - 0.5) * 0.2;
-            const severity = Math.random();
+            const severityIdx = Math.floor(Math.random() * 3);
+            const severity = severities[severityIdx];
 
             data.push({
                 lat,
                 lng,
                 severity,
-                color: severity > 0.7 ? '#ef4444' : severity > 0.4 ? '#f59e0b' : '#10b981'
+                weight: this.getSeverityWeight(severity),
+                color: this.getSeverityColor(severity)
             });
         }
 
         return data;
     }
 
-    createHeatmap() {
+    // Helper: Box-Muller transform for Gaussian distribution
+    randomGaussian() {
+        const u1 = Math.random();
+        const u2 = Math.random();
+        return Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+    }
+
+    // Generate risk cloud: create scattered points around a main point for realistic zones
+    generateRiskCloud(point, count, spreadKm, weight) {
+        const points = [];
+        const spreadInDegrees = spreadKm / 111.32; // Convert km to degrees (approx)
+
+        for (let i = 0; i < count; i++) {
+            // Gaussian distribution for realistic clustering
+            const angle = Math.random() * 2 * Math.PI;
+            const radius = Math.abs(this.randomGaussian()) * spreadInDegrees;
+
+            const offsetLat = radius * Math.cos(angle);
+            const offsetLng = radius * Math.sin(angle);
+
+            points.push({
+                lat: point.lat + offsetLat,
+                lng: point.lng + offsetLng,
+                weight: weight
+            });
+        }
+
+        return points;
+    }
+
+    // Create heatmap points: expand small datasets with risk clouds
+    createHeatmapPoints(mapData) {
+        if (!mapData || mapData.length === 0) {
+            console.warn('No map data provided to createHeatmapPoints');
+            return [];
+        }
+
+        console.log('Creating heatmap points from', mapData.length, 'data points');
+
+        // If we have enough points (>= 10), use them directly
+        if (mapData.length >= 10) {
+            console.log('Sufficient data points, using direct mapping');
+            return mapData.map(point => ({
+                location: new google.maps.LatLng(point.lat, point.lng),
+                weight: point.weight
+            }));
+        }
+
+        // For small datasets, generate risk clouds around each point
+        console.log('Small dataset detected, generating risk clouds');
+        const expandedPoints = [];
+
+        mapData.forEach(point => {
+            // Generate 40-80 scattered points around each main point
+            const cloudSize = 40 + Math.floor(Math.random() * 41); // 40-80 points
+            const spreadRadius = 1 + Math.random() * 2; // 1-3 km spread
+
+            console.log(`Generating cloud of ${cloudSize} points with ${spreadRadius.toFixed(2)}km radius for point at [${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}]`);
+
+            const cloudPoints = this.generateRiskCloud(point, cloudSize, spreadRadius, point.weight);
+
+            // Convert to Google Maps format
+            cloudPoints.forEach(cp => {
+                expandedPoints.push({
+                    location: new google.maps.LatLng(cp.lat, cp.lng),
+                    weight: cp.weight
+                });
+            });
+        });
+
+        console.log('Generated', expandedPoints.length, 'total heatmap points from', mapData.length, 'original points');
+        return expandedPoints;
+    }
+
+    // Render map based on current mode
+    renderMap() {
+        if (this.isHeatmapMode) {
+            this.renderHeatmap(this.mapData);
+        } else {
+            this.renderMarkers(this.mapData);
+        }
+    }
+
+    // Render markers for Normal Map mode
+    renderMarkers(points) {
+        if (!this.map) {
+            console.error('Map not initialized, cannot render markers');
+            return;
+        }
+
+        console.log('Rendering markers for', points.length, 'data points');
+
+        // Clear existing markers
+        if (this.markers && this.markers.length > 0) {
+            this.markers.forEach(marker => marker.setMap(null));
+            this.markers = [];
+        }
+
+        // Hide heatmap if visible
+        if (this.heatLayer) {
+            this.heatLayer.setMap(null);
+        }
+
+        // Create markers for each point
+        points.forEach(point => {
+            const marker = new google.maps.Marker({
+                position: { lat: point.lat, lng: point.lng },
+                map: this.map,
+                title: `Risk: ${point.severity}`,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    fillColor: point.color,
+                    fillOpacity: 0.8,
+                    strokeColor: '#ffffff',
+                    strokeWeight: 2,
+                    scale: 8
+                }
+            });
+
+            // Add info window
+            const infoWindow = new google.maps.InfoWindow({
+                content: `
+                    <div style="padding: 8px;">
+                        <strong>Climate Risk</strong><br>
+                        <span style="color: ${point.color}; font-weight: bold;">${point.severity}</span><br>
+                        <small>Lat: ${point.lat.toFixed(4)}, Lng: ${point.lng.toFixed(4)}</small>
+                    </div>
+                `
+            });
+
+            marker.addListener('click', () => {
+                infoWindow.open(this.map, marker);
+            });
+
+            this.markers.push(marker);
+        });
+
+        console.log('Markers rendered:', this.markers.length);
+    }
+
+    // Render heatmap for Heatmap Mode
+    renderHeatmap(points) {
         if (!this.map) {
             console.error('Map not initialized, cannot create heatmap');
             return;
         }
 
-        console.log('Creating heatmap with', this.mapData.length, 'data points');
+        console.log('Creating Google Maps heatmap with', points.length, 'data points');
+
+        // Clear existing markers
+        if (this.markers && this.markers.length > 0) {
+            this.markers.forEach(marker => marker.setMap(null));
+        }
 
         // Remove existing heatmap layer if it exists
         if (this.heatLayer) {
-            this.map.removeLayer(this.heatLayer);
+            this.heatLayer.setMap(null);
         }
 
-        // Prepare data for Leaflet heatmap
-        const heatmapData = this.mapData.map(point => [
-            point.lat,
-            point.lng,
-            point.severity // intensity
-        ]);
+        // Create heatmap points with risk cloud generation
+        const heatmapData = this.createHeatmapPoints(points);
 
-        console.log('Heatmap data prepared:', heatmapData.length, 'points');
-        console.log('Sample heatmap point:', heatmapData[0]);
+        if (heatmapData.length === 0) {
+            console.warn('No heatmap data to render');
+            return;
+        }
 
-        // Create heatmap layer
-        this.heatLayer = L.heatLayer(heatmapData, {
-            radius: 30,
-            blur: 25,
-            maxZoom: 17,
-            max: 1.0,
-            gradient: {
-                0.0: '#10b981',
-                0.4: '#10b981',
-                0.6: '#f59e0b',
-                0.8: '#ef4444',
-                1.0: '#ef4444'
-            }
+        console.log('Heatmap data prepared:', heatmapData.length, 'weighted points');
+        if (heatmapData.length > 0) {
+            console.log('Sample heatmap point:', {
+                lat: heatmapData[0].location.lat(),
+                lng: heatmapData[0].location.lng(),
+                weight: heatmapData[0].weight
+            });
+        }
+
+        // Create Google Maps heatmap layer with PREMIUM configuration
+        this.heatLayer = new google.maps.visualization.HeatmapLayer({
+            data: heatmapData,
+            map: this.map,
+            radius: 60,              // ✅ Increased from 30 for wider coverage
+            opacity: 0.45,           // ✅ Reduced from 0.7 for subtle overlay
+            dissipating: true,       // ✅ NEW - smooth edges
+            maxIntensity: 3,         // ✅ NEW - caps intensity at weight 3 (High severity)
+            // ✅ PREMIUM GRADIENT: green → yellow → orange → red
+            gradient: [
+                'rgba(0,255,0,0)',       // Transparent green (0%)
+                'rgba(0,255,0,0.6)',     // Semi-transparent green (10%)
+                'rgba(124,252,0,0.65)',  // Light green (20%)
+                'rgba(173,255,47,0.7)',  // Yellow-green (30%)
+                'rgba(255,255,0,0.7)',   // Yellow (40%)
+                'rgba(255,215,0,0.75)',  // Gold (50%)
+                'rgba(255,165,0,0.8)',   // Orange (60%)
+                'rgba(255,140,0,0.85)',  // Dark orange (70%)
+                'rgba(255,69,0,0.9)',    // Red-orange (80%)
+                'rgba(255,0,0,0.9)'      // Red (90-100%)
+            ]
         });
 
-        console.log('Heatmap layer created');
+        console.log('✅ Premium Google Maps heatmap layer created with:');
+        console.log('   - Radius: 60 (zone-like coverage)');
+        console.log('   - Opacity: 0.45 (subtle overlay)');
+        console.log('   - Dissipating: true (smooth edges)');
+        console.log('   - MaxIntensity: 3 (High severity cap)');
+        console.log('   - Premium gradient: green → yellow → orange → red');
+    }
 
-        // Add to map if in heatmap mode
-        if (this.isHeatmapMode) {
-            this.heatLayer.addTo(this.map);
-            console.log('Heatmap layer added to map');
+    // NEW: Switch between Regional and User Location heatmap layers
+    switchHeatmapLayer(layer) {
+        if (!this.isHeatmapMode) {
+            console.log('Not in heatmap mode, ignoring layer switch');
+            return;
+        }
+
+        this.currentHeatmapLayer = layer;
+
+        // Update button states
+        const regionalBtn = document.getElementById('regional-layer-btn');
+        const userBtn = document.getElementById('user-layer-btn');
+
+        if (layer === 'regional') {
+            regionalBtn.classList.add('active');
+            userBtn.classList.remove('active');
+
+            // Show regional heatmap, hide user heatmap
+            if (this.heatLayer) {
+                this.heatLayer.setMap(this.map);
+            }
+            if (this.userLocationHeatLayer) {
+                this.userLocationHeatLayer.setMap(null);
+            }
+
+            console.log('✅ Switched to Regional Risk heatmap');
+        } else if (layer === 'user') {
+            userBtn.classList.add('active');
+            regionalBtn.classList.remove('active');
+
+            // Generate user location heatmap if not exists
+            if (!this.userLocationHeatLayer && this.currentLocation) {
+                this.generateUserLocationHeatmap();
+            }
+
+            // Show user heatmap, hide regional heatmap
+            if (this.userLocationHeatLayer) {
+                this.userLocationHeatLayer.setMap(this.map);
+            }
+            if (this.heatLayer) {
+                this.heatLayer.setMap(null);
+            }
+
+            console.log('✅ Switched to My Location Risk heatmap');
+        }
+    }
+
+    // NEW: Generate heatmap focused on user's current location
+    generateUserLocationHeatmap() {
+        if (!this.currentLocation || !this.map) {
+            console.error('Cannot generate user location heatmap: location or map not available');
+            return;
+        }
+
+        console.log('Generating user location heatmap...');
+
+        // Determine severity weight based on current climate data or default to Moderate (2)
+        let severityWeight = 2; // Default: Moderate
+
+        if (this.backendRiskData) {
+            // Calculate average risk from backend data
+            const risks = [
+                this.backendRiskData.heat_risk,
+                this.backendRiskData.flood_risk,
+                this.backendRiskData.drought_risk
+            ];
+            const riskValues = { 'Low': 1, 'Moderate': 2, 'High': 3 };
+            const avgRisk = risks.reduce((sum, risk) => sum + (riskValues[risk] || 2), 0) / risks.length;
+            severityWeight = Math.round(avgRisk);
+        }
+
+        // Generate risk cloud around user's location (100-150 points, 2-5km spread)
+        const cloudSize = 100 + Math.floor(Math.random() * 51); // 100-150 points
+        const spreadRadius = 2 + Math.random() * 3; // 2-5 km spread
+
+        console.log(`Generating user location risk cloud: ${cloudSize} points, ${spreadRadius.toFixed(2)}km radius, weight: ${severityWeight}`);
+
+        const userPoint = {
+            lat: this.currentLocation.lat,
+            lng: this.currentLocation.lng,
+            weight: severityWeight
+        };
+
+        const cloudPoints = this.generateRiskCloud(userPoint, cloudSize, spreadRadius, severityWeight);
+
+        // Convert to Google Maps format
+        const heatmapData = cloudPoints.map(cp => ({
+            location: new google.maps.LatLng(cp.lat, cp.lng),
+            weight: cp.weight
+        }));
+
+        // Create user location heatmap layer
+        this.userLocationHeatLayer = new google.maps.visualization.HeatmapLayer({
+            data: heatmapData,
+            map: null, // Don't show immediately
+            radius: 60,
+            opacity: 0.45,
+            dissipating: true,
+            maxIntensity: 3,
+            gradient: [
+                'rgba(0,255,0,0)',
+                'rgba(0,255,0,0.6)',
+                'rgba(124,252,0,0.65)',
+                'rgba(173,255,47,0.7)',
+                'rgba(255,255,0,0.7)',
+                'rgba(255,215,0,0.75)',
+                'rgba(255,165,0,0.8)',
+                'rgba(255,140,0,0.85)',
+                'rgba(255,69,0,0.9)',
+                'rgba(255,0,0,0.9)'
+            ]
+        });
+
+        console.log('✅ User location heatmap layer created');
+    }
+
+    toggleMapMode(isHeatmap) {
+        this.isHeatmapMode = isHeatmap;
+
+        const normalMapBtn = document.getElementById('normal-map-btn');
+        const heatmapBtn = document.getElementById('heatmap-btn');
+        const layerControls = document.getElementById('heatmap-layer-controls');
+
+        if (isHeatmap) {
+            normalMapBtn.classList.remove('active');
+            heatmapBtn.classList.add('active');
+
+            // Show layer controls
+            if (layerControls) {
+                layerControls.style.display = 'flex';
+            }
+
+            // Show heatmap based on current layer selection
+            if (this.currentHeatmapLayer === 'regional') {
+                this.renderHeatmap(this.mapData);
+            } else if (this.currentHeatmapLayer === 'user') {
+                if (!this.userLocationHeatLayer && this.currentLocation) {
+                    this.generateUserLocationHeatmap();
+                }
+                if (this.userLocationHeatLayer) {
+                    this.userLocationHeatLayer.setMap(this.map);
+                }
+            }
         } else {
-            console.log('Heatmap mode disabled, layer not added to map');
+            heatmapBtn.classList.remove('active');
+            normalMapBtn.classList.add('active');
+
+            // Hide layer controls
+            if (layerControls) {
+                layerControls.style.display = 'none';
+            }
+
+            // Hide all heatmaps, show markers
+            if (this.heatLayer) {
+                this.heatLayer.setMap(null);
+            }
+            if (this.userLocationHeatLayer) {
+                this.userLocationHeatLayer.setMap(null);
+            }
+            this.renderMarkers(this.mapData);
         }
     }
 
