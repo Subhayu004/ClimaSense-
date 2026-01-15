@@ -294,47 +294,107 @@ app.get('/api/analysis/risk', async (req, res) => {
     }
 });
 
-// API endpoint to proxy AI explanation requests to AWS
+// API endpoint to provide AI-powered climate explanation using Groq
 app.post('/api/ai/explain', async (req, res) => {
     try {
         const { heat_risk, flood_risk, drought_risk, temperature, humidity, rainfall, lat, lon } = req.body;
-        const AWS_API_ENDPOINT = process.env.AWS_API_ENDPOINT || 'https://j8wnxa1ezd.execute-api.us-east-1.amazonaws.com';
+        const GROQ_API_KEY = process.env.GROQ_API_KEY;
+        const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-        const url = `${AWS_API_ENDPOINT}/ai/explain`;
-        console.log('Proxying AI explanation request to:', url);
+        if (!GROQ_API_KEY || GROQ_API_KEY === 'YOUR_GROQ_API_KEY_HERE') {
+            return res.status(500).json({
+                error: 'Groq API key not configured. Please set GROQ_API_KEY in environment variables.'
+            });
+        }
 
-        const payload = {
-            heat_risk,
-            flood_risk,
-            drought_risk,
-            temperature,
-            humidity,
-            rainfall,
-            lat,
-            lon
-        };
+        console.log('Generating AI climate analysis using Groq...');
+        console.log('Climate data:', { heat_risk, flood_risk, drought_risk, temperature, humidity, rainfall });
 
-        const response = await fetch(url, {
+        // Create a comprehensive prompt for Groq to analyze the climate situation
+        const prompt = `You are an expert climate risk analyst. Based on the following real-time climate data and risk assessments, provide a concise yet comprehensive climate risk analysis.
+
+Current Climate Conditions:
+- Temperature: ${temperature}°C
+- Humidity: ${humidity}%
+- Rainfall: ${rainfall} mm
+${lat && lon ? `- Location: ${lat}°, ${lon}°` : ''}
+
+Risk Assessment:
+- Heat Risk: ${heat_risk}
+- Flood Risk: ${flood_risk}
+- Drought Risk: ${drought_risk}
+
+Instructions:
+1. Analyze the overall climate risk level based on the individual risk factors (Low/Moderate/High)
+2. Provide a brief 2-3 sentence explanation of the current climate situation
+3. Mention any immediate concerns or recommendations
+4. Keep your response professional, clear, and actionable
+
+IMPORTANT: Write in plain text without any markdown formatting (no asterisks, no bold, no special symbols). Just provide clear, readable sentences that will be displayed directly in a web interface.`;
+
+        const response = await fetch(GROQ_API_URL, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${GROQ_API_KEY}`
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile', // Fast and accurate model
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a professional climate risk analyst providing clear, concise assessments of weather conditions and climate risks.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                temperature: 0.7,
+                max_tokens: 400,
+                top_p: 0.9
+            })
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error(`AWS AI Explanation API error ${response.status}:`, errorText);
-            throw new Error(`AWS API error: ${response.status}`);
+            console.error(`Groq API error ${response.status}:`, errorText);
+            throw new Error(`Groq API error: ${response.status}`);
         }
 
         const data = await response.json();
-        console.log('AWS AI Explanation response:', data);
-        res.json(data);
+        const aiExplanation = data.choices[0]?.message?.content || 'Analysis completed.';
+
+        console.log('✅ Groq AI analysis generated successfully');
+
+        // Calculate confidence based on data availability and risk consistency
+        let confidence = 75; // Base confidence
+
+        // Increase confidence if we have complete data
+        if (temperature && humidity && rainfall !== undefined) {
+            confidence += 5;
+        }
+
+        // Adjust confidence based on risk consistency
+        const risks = [heat_risk, flood_risk, drought_risk];
+        const uniqueRisks = new Set(risks).size;
+        if (uniqueRisks === 1) {
+            confidence += 10; // All risks are the same - very consistent
+        } else if (uniqueRisks === 2) {
+            confidence += 5; // Mostly consistent
+        }
+
+        res.json({
+            explanation: aiExplanation,
+            summary: aiExplanation, // Provide both formats for compatibility
+            confidence: Math.min(confidence, 95),
+            provider: 'Groq AI'
+        });
+
     } catch (error) {
-        console.error('AI Explanation Proxy Error:', error);
+        console.error('AI Explanation Error:', error);
         res.status(500).json({
-            error: 'Failed to fetch AI explanation',
+            error: 'Failed to generate AI explanation',
             message: error.message
         });
     }
@@ -359,6 +419,6 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`✅ Server running on port ${PORT}`);
-    console.log(`🌍 Visit: http://localhost:${PORT}`);
+    console.log(` Server running on port ${PORT}`);
+    console.log(` Visit: http://localhost:${PORT}`);
 });
