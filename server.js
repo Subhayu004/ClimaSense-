@@ -255,6 +255,91 @@ app.get('/api/climate-grid', async (req, res) => {
     }
 });
 
+// API endpoint to proxy risk analysis requests to AWS
+app.get('/api/analysis/risk', async (req, res) => {
+    try {
+        const { lat, lon } = req.query;
+        const AWS_API_ENDPOINT = process.env.AWS_API_ENDPOINT || 'https://j8wnxa1ezd.execute-api.us-east-1.amazonaws.com';
+
+        if (!lat || !lon) {
+            return res.status(400).json({ error: 'Latitude and longitude are required' });
+        }
+
+        // AWS API expects lat/lon parameters
+        const url = `${AWS_API_ENDPOINT}/analysis/risk?lat=${lat}&lon=${lon}`;
+        console.log('Proxying risk analysis request to:', url);
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`AWS Risk Analysis API error ${response.status}:`, errorText);
+            throw new Error(`AWS API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('AWS Risk Analysis response:', data);
+        res.json(data);
+    } catch (error) {
+        console.error('Risk Analysis Proxy Error:', error);
+        res.status(500).json({
+            error: 'Failed to fetch risk analysis',
+            message: error.message
+        });
+    }
+});
+
+// API endpoint to proxy AI explanation requests to AWS
+app.post('/api/ai/explain', async (req, res) => {
+    try {
+        const { heat_risk, flood_risk, drought_risk, temperature, humidity, rainfall, lat, lon } = req.body;
+        const AWS_API_ENDPOINT = process.env.AWS_API_ENDPOINT || 'https://j8wnxa1ezd.execute-api.us-east-1.amazonaws.com';
+
+        const url = `${AWS_API_ENDPOINT}/ai/explain`;
+        console.log('Proxying AI explanation request to:', url);
+
+        const payload = {
+            heat_risk,
+            flood_risk,
+            drought_risk,
+            temperature,
+            humidity,
+            rainfall,
+            lat,
+            lon
+        };
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`AWS AI Explanation API error ${response.status}:`, errorText);
+            throw new Error(`AWS API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('AWS AI Explanation response:', data);
+        res.json(data);
+    } catch (error) {
+        console.error('AI Explanation Proxy Error:', error);
+        res.status(500).json({
+            error: 'Failed to fetch AI explanation',
+            message: error.message
+        });
+    }
+});
+
 // Config endpoint - provides public configuration to frontend
 app.get('/api/config', (req, res) => {
     res.json({
