@@ -331,7 +331,20 @@ class ClimateDashboard {
 
     async fetchCurrentClimate(lat, lon) {
         try {
-            const response = await fetch(
+            // First, try to fetch atmospheric data from our new weather endpoint
+            console.log('Fetching real-time weather data from /api/weather...');
+            const weatherResponse = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
+
+            let climateData = null;
+            if (weatherResponse.ok) {
+                climateData = await weatherResponse.json();
+                console.log('Fetched real-time weather data:', climateData);
+            } else {
+                console.warn('Failed to fetch real-time weather data, falling back to AWS/generated data');
+            }
+
+            // Also fetch risk data from AWS backend
+            const riskResponse = await fetch(
                 `${AWS_API_BASE}/climate/current?lat=${lat}&lon=${lon}`,
                 {
                     method: 'GET',
@@ -341,29 +354,24 @@ class ClimateDashboard {
                 }
             );
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            console.log('Backend /climate/current response:', data);
-
-            // Check if backend returned climate metrics (temperature, humidity, etc.)
-            // If not, generate realistic fallback data based on location
-            let climateData;
-            if (data.temperature !== undefined && data.humidity !== undefined) {
-                // Backend returned proper climate data
-                climateData = data;
-            } else {
-                // Backend returned risk data or incomplete data
-                // Generate realistic climate metrics based on location
-                console.warn('/climate/current did not return climate metrics, using generated data');
-                climateData = this.generateClimateData(lat, lon);
+            if (riskResponse.ok) {
+                const riskData = await riskResponse.json();
+                console.log('Backend /climate/current response:', riskData);
 
                 // Store the risk data if present for later use
-                if (data.heat_risk && data.flood_risk && data.drought_risk) {
-                    this.backendRiskData = data;
+                if (riskData.heat_risk && riskData.flood_risk && riskData.drought_risk) {
+                    this.backendRiskData = riskData;
+                    // If we don't have climate metrics from weather API, use AWS ones if available
+                    if (!climateData && riskData.temperature !== undefined) {
+                        climateData = riskData;
+                    }
                 }
+            }
+
+            // Final fallback: generate data if everything else failed
+            if (!climateData) {
+                console.warn('No climate data available from APIs, using generated fallback');
+                climateData = this.generateClimateData(lat, lon);
             }
 
             // Update climate display
@@ -515,6 +523,41 @@ class ClimateDashboard {
 
     async loadMapData() {
         try {
+            // Try to fetch climate-based grid data first
+            console.log('Fetching climate-based heatmap data...');
+            const climateResponse = await fetch(
+                `/api/climate-grid?lat=${this.currentLocation.lat}&lon=${this.currentLocation.lng}`
+            );
+
+            if (climateResponse.ok) {
+                const climateData = await climateResponse.json();
+                console.log('Climate grid data received:', climateData.length, 'points');
+
+                // Transform climate data for map
+                this.mapData = climateData.map(point => ({
+                    lat: point.lat,
+                    lng: point.lon,
+                    severity: point.severity,
+                    weight: this.getSeverityWeight(point.severity),
+                    color: this.getSeverityColor(point.severity),
+                    temperature: point.temperature,
+                    humidity: point.humidity,
+                    wind_speed: point.wind_speed,
+                    rainfall: point.rainfall
+                }));
+
+                console.log('Parsed climate-based map data:', this.mapData.length, 'points');
+                this.renderMap();
+                return;
+            } else {
+                console.warn('Climate grid API failed, trying AWS backend...');
+            }
+        } catch (error) {
+            console.error('Failed to load climate grid data:', error);
+        }
+
+        // Fallback to AWS backend
+        try {
             const response = await fetch(`${AWS_API_BASE}/map/data`, {
                 method: 'GET',
                 headers: {
@@ -527,8 +570,7 @@ class ClimateDashboard {
             }
 
             const data = await response.json();
-            console.log('Map data received from backend:', data);
-            console.log('Map data type:', typeof data, 'Is Array:', Array.isArray(data));
+            console.log('Map data received from AWS backend:', data);
 
             // Check if data is valid and has expected structure
             if (Array.isArray(data) && data.length > 0) {
@@ -536,13 +578,12 @@ class ClimateDashboard {
                 this.mapData = data.map(point => ({
                     lat: point.lat || point.latitude,
                     lng: point.lon || point.lng || point.longitude,
-                    severity: point.severity, // Keep original severity string
-                    weight: this.getSeverityWeight(point.severity), // Add weight for heatmap
+                    severity: point.severity,
+                    weight: this.getSeverityWeight(point.severity),
                     color: point.color || this.getSeverityColor(point.severity)
                 }));
 
-                console.log('Parsed map data points:', this.mapData.length);
-                console.log('Sample data point:', this.mapData[0]);
+                console.log('Parsed AWS map data points:', this.mapData.length);
             } else {
                 console.warn('Backend returned invalid or empty map data, using mock data');
                 throw new Error('Invalid data format from backend');

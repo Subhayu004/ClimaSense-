@@ -88,6 +88,173 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
+// API endpoint for real-time weather data from OpenWeatherMap
+app.get('/api/weather', async (req, res) => {
+    try {
+        const { lat, lon } = req.query;
+        const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY;
+
+        if (!lat || !lon) {
+            return res.status(400).json({ error: 'Latitude and longitude are required' });
+        }
+
+        if (!OPENWEATHER_API_KEY) {
+            return res.status(500).json({ error: 'OpenWeather API key not configured' });
+        }
+
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`OpenWeather API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Extract relevant climate metrics
+        const climateData = {
+            temperature: Math.round(data.main.temp),
+            humidity: data.main.humidity,
+            wind_speed: data.wind.speed,
+            rainfall: data.rain ? (data.rain['1h'] || data.rain['3h'] || 0) : 0,
+            region: data.name
+        };
+
+        res.json(climateData);
+    } catch (error) {
+        console.error('Weather API Error:', error);
+        res.status(500).json({ error: 'Failed to fetch weather data' });
+    }
+});
+
+// Cache for climate grid data to avoid hitting API rate limits
+const climateGridCache = new Map();
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+
+// Helper function to calculate risk severity from weather data
+function calculateClimateSeverity(weatherData) {
+    let riskScore = 0;
+
+    // Temperature risk
+    if (weatherData.temperature > 35) riskScore += 3;
+    else if (weatherData.temperature > 30) riskScore += 2;
+    else if (weatherData.temperature < 10) riskScore += 2;
+
+    // Rainfall risk (hourly rainfall)
+    if (weatherData.rainfall > 50) riskScore += 3;
+    else if (weatherData.rainfall > 20) riskScore += 2;
+    else if (weatherData.rainfall > 10) riskScore += 1;
+
+    // Humidity risk (drought indicator when combined with high temp)
+    if (weatherData.humidity < 30 && weatherData.temperature > 30) riskScore += 2;
+    else if (weatherData.humidity < 20) riskScore += 1;
+
+    // Wind speed risk
+    if (weatherData.wind_speed > 15) riskScore += 2;
+    else if (weatherData.wind_speed > 10) riskScore += 1;
+
+    if (riskScore >= 5) return 'High';
+    if (riskScore >= 3) return 'Moderate';
+    return 'Low';
+}
+
+// API endpoint for climate-based heatmap grid
+app.get('/api/climate-grid', async (req, res) => {
+    try {
+        const { lat, lon } = req.query;
+        const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY;
+
+        if (!lat || !lon) {
+            return res.status(400).json({ error: 'Latitude and longitude are required' });
+        }
+
+        if (!OPENWEATHER_API_KEY) {
+            return res.status(500).json({ error: 'OpenWeather API key not configured' });
+        }
+
+        const centerLat = parseFloat(lat);
+        const centerLon = parseFloat(lon);
+        const cacheKey = `${centerLat.toFixed(2)}_${centerLon.toFixed(2)}`;
+
+        // Check cache first
+        const cached = climateGridCache.get(cacheKey);
+        if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+            console.log('Returning cached climate grid data');
+            return res.json(cached.data);
+        }
+
+        // Create a 3x3 grid of points (9 total API calls)
+        const gridSize = 3;
+        const gridSpacing = 0.15; // degrees (~16km at equator)
+        const points = [];
+
+        // Generate grid coordinates
+        for (let i = 0; i < gridSize; i++) {
+            for (let j = 0; j < gridSize; j++) {
+                const lat = centerLat + (i - 1) * gridSpacing;
+                const lon = centerLon + (j - 1) * gridSpacing;
+                points.push({ lat, lon });
+            }
+        }
+
+        // Fetch weather data for all points in parallel
+        const weatherPromises = points.map(async (point) => {
+            try {
+                const url = `https://api.openweathermap.org/data/2.5/weather?lat=${point.lat}&lon=${point.lon}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    console.error(`Weather API failed for point ${point.lat},${point.lon}`);
+                    return null;
+                }
+
+                const data = await response.json();
+
+                const weatherData = {
+                    temperature: Math.round(data.main.temp),
+                    humidity: data.main.humidity,
+                    wind_speed: data.wind.speed,
+                    rainfall: data.rain ? (data.rain['1h'] || data.rain['3h'] || 0) : 0
+                };
+
+                const severity = calculateClimateSeverity(weatherData);
+
+                return {
+                    lat: point.lat,
+                    lon: point.lon,
+                    severity: severity,
+                    ...weatherData
+                };
+            } catch (error) {
+                console.error(`Error fetching weather for ${point.lat},${point.lon}:`, error);
+                return null;
+            }
+        });
+
+        // Wait for all requests to complete
+        const results = await Promise.all(weatherPromises);
+
+        // Filter out failed requests
+        const gridData = results.filter(point => point !== null);
+
+        if (gridData.length === 0) {
+            return res.status(500).json({ error: 'Failed to fetch weather data for grid' });
+        }
+
+        // Cache the results
+        climateGridCache.set(cacheKey, {
+            data: gridData,
+            timestamp: Date.now()
+        });
+
+        console.log(`Generated climate grid with ${gridData.length} points`);
+        res.json(gridData);
+    } catch (error) {
+        console.error('Climate Grid API Error:', error);
+        res.status(500).json({ error: 'Failed to generate climate grid' });
+    }
+});
+
 // Config endpoint - provides public configuration to frontend
 app.get('/api/config', (req, res) => {
     res.json({
