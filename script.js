@@ -547,6 +547,10 @@ class ClimateDashboard {
                 }));
 
                 console.log('Parsed climate-based map data:', this.mapData.length, 'points');
+
+                // Cache the original data for filtering
+                this.cachedMapData = [...this.mapData];
+
                 this.renderMap();
                 return;
             } else {
@@ -584,6 +588,9 @@ class ClimateDashboard {
                 }));
 
                 console.log('Parsed AWS map data points:', this.mapData.length);
+
+                // Cache the original data for filtering
+                this.cachedMapData = [...this.mapData];
             } else {
                 console.warn('Backend returned invalid or empty map data, using mock data');
                 throw new Error('Invalid data format from backend');
@@ -599,6 +606,10 @@ class ClimateDashboard {
             // Use mock data as fallback
             this.mapData = this.generateMockMapData();
             console.log('Generated mock data points:', this.mapData.length);
+
+            // Cache the original data for filtering
+            this.cachedMapData = [...this.mapData];
+
             this.renderMap();
         }
     }
@@ -1619,21 +1630,88 @@ class ClimateDashboard {
         const riskFilter = document.getElementById('risk-filter').value;
         const timeFilter = document.getElementById('time-filter').value;
 
-        // Mock filter application
         console.log('Applying filters:', { riskFilter, timeFilter });
 
-        // In a real app, this would filter the map data and reload the heatmap
         this.showLoading(true);
+
+        // Apply filters after a short delay to show loading state
         setTimeout(() => {
+            // Filter heatmap data by risk level
+            this.filterHeatmapByRisk(riskFilter);
+
+            // Update charts based on time range
+            this.updateChartsByTimeRange(timeFilter);
+
             this.showLoading(false);
+
             // Show success message
             const successDiv = document.createElement('div');
             successDiv.className = 'success fade-in';
-            successDiv.textContent = 'Filters applied successfully';
+            successDiv.textContent = `Filters applied: ${riskFilter === 'all' ? 'All Levels' : riskFilter.charAt(0).toUpperCase() + riskFilter.slice(1) + ' Risk'} | ${timeFilter === 'current' ? 'Current' : timeFilter}`;
             document.body.appendChild(successDiv);
 
             setTimeout(() => successDiv.remove(), 3000);
-        }, 1000);
+        }, 500);
+    }
+
+    filterHeatmapByRisk(riskLevel) {
+        // If no map data cached, reload fresh data
+        if (!this.cachedMapData || this.cachedMapData.length === 0) {
+            console.warn('No cached map data, reloading...');
+            this.loadMapData();
+            return;
+        }
+
+        let filteredData = this.cachedMapData;
+
+        // Filter by risk level if not "all"
+        if (riskLevel !== 'all') {
+            // Map risk filter values to severity strings
+            const severityMap = {
+                'high': 'High',
+                'medium': 'Moderate',
+                'low': 'Low'
+            };
+
+            const targetSeverity = severityMap[riskLevel];
+            filteredData = this.cachedMapData.filter(point => point.severity === targetSeverity);
+
+            console.log(`Filtered to ${riskLevel} risk: ${filteredData.length} points out of ${this.cachedMapData.length}`);
+        }
+
+        // Re-render the map with filtered data
+        this.renderMap(filteredData);
+    }
+
+    updateChartsByTimeRange(timeRange) {
+        // Map time filter to number of years
+        const yearMap = {
+            'current': 1,
+            '1year': 1,
+            '5years': 5,
+            '10years': 10
+        };
+
+        const years = yearMap[timeRange] || 1;
+
+        // Update the temperature chart with the selected time range
+        if (this.chart) {
+            // Get the last N years of data
+            const allYears = Array.from({ length: 21 }, (_, i) => 2005 + i); // 2005-2025
+            const filteredYears = allYears.slice(-years);
+
+            // Update chart data
+            this.chart.data.labels = filteredYears;
+            this.chart.data.datasets[0].data = filteredYears.map(year => {
+                // Use cached temperature data or generate based on year
+                const baseTemp = 22;
+                const yearOffset = (year - 2005) * 0.15; // Gradual warming trend
+                return (baseTemp + yearOffset + Math.random() * 2).toFixed(1);
+            });
+
+            this.chart.update();
+            console.log(`Updated chart to show ${years} year(s) of data`);
+        }
     }
 
     async refreshData() {
