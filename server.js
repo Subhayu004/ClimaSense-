@@ -35,7 +35,7 @@ app.post('/api/chat', async (req, res) => {
             body: JSON.stringify({
                 contents: [{
                     parts: [{
-                        text: `You are an expert AI climate assistant for a Climate Risk Dashboard named ClimaSense. You help users understand climate risks, weather patterns, and environmental data based on the provided dashboard context. ${context ? '\n\nDashboard Context:\n' + context : ''}\n\nUser Question: ${message}\n\nInstructions: Provide clear, scientifically accurate, and helpful information. Keep responses concise (2-4 sentences). Be friendly and professional. If the question is unrelated to climate or environmental issues, politely redirect the focus to climate matters.`
+                        text: `You are ClimaAI, an expert climate assistant for ClimaSense - a Climate Risk Dashboard. You help users understand climate risks, weather patterns, and environmental data based on the provided dashboard context. ${context ? '\n\nDashboard Context:\n' + context : ''}\n\nUser Question: ${message}\n\nInstructions: Provide clear, scientifically accurate, and helpful information. Keep responses concise (2-4 sentences). Be friendly and professional. If the question is unrelated to climate or environmental issues, politely redirect the focus to climate matters.`
                     }]
                 }],
                 generationConfig: {
@@ -132,30 +132,84 @@ const climateGridCache = new Map();
 const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
 
 // Helper function to calculate risk severity from weather data
+// Uses realistic, scientifically-based thresholds to accurately assess climate risk
 function calculateClimateSeverity(weatherData) {
     let riskScore = 0;
 
-    // Temperature risk
-    if (weatherData.temperature > 35) riskScore += 3;
-    else if (weatherData.temperature > 30) riskScore += 2;
-    else if (weatherData.temperature < 10) riskScore += 2;
+    // --- TEMPERATURE RISK ASSESSMENT ---
+    // Based on WHO heat health warning criteria and cold stress thresholds
+    if (weatherData.temperature > 40) {
+        // Extreme heat - dangerous conditions
+        riskScore += 3;
+    } else if (weatherData.temperature > 32) {
+        // High heat - moderate risk, especially with humidity
+        riskScore += 1.5;
+    } else if (weatherData.temperature < 0) {
+        // Freezing - high risk
+        riskScore += 2.5;
+    } else if (weatherData.temperature < 5) {
+        // Very cold - moderate risk
+        riskScore += 1;
+    }
+    // Normal range: 5-32°C contributes 0 to risk score
 
-    // Rainfall risk (hourly rainfall)
-    if (weatherData.rainfall > 50) riskScore += 3;
-    else if (weatherData.rainfall > 20) riskScore += 2;
-    else if (weatherData.rainfall > 10) riskScore += 1;
+    // --- RAINFALL RISK ASSESSMENT ---
+    // Note: Most APIs return hourly rainfall, extreme events are rare
+    if (weatherData.rainfall > 100) {
+        // Extreme rainfall - flooding imminent (very rare)
+        riskScore += 3;
+    } else if (weatherData.rainfall > 50) {
+        // Heavy rainfall - flood risk
+        riskScore += 2;
+    } else if (weatherData.rainfall > 25) {
+        // Moderate rainfall - monitor for flooding
+        riskScore += 1;
+    } else if (weatherData.rainfall > 10) {
+        // Light to moderate rain - minimal risk
+        riskScore += 0.5;
+    }
+    // Light or no rain (0-10mm) contributes 0 to risk score
 
-    // Humidity risk (drought indicator when combined with high temp)
-    if (weatherData.humidity < 30 && weatherData.temperature > 30) riskScore += 2;
-    else if (weatherData.humidity < 20) riskScore += 1;
+    // --- HUMIDITY RISK ASSESSMENT ---
+    // Drought and heat stress indicators
+    if (weatherData.humidity < 20 && weatherData.temperature > 32) {
+        // Very low humidity + high heat = extreme drought/heat stress risk
+        riskScore += 2;
+    } else if (weatherData.humidity < 25 && weatherData.temperature > 28) {
+        // Low humidity + warm temp = moderate drought risk
+        riskScore += 1;
+    } else if (weatherData.humidity > 90 && weatherData.temperature > 28) {
+        // Very high humidity + heat = heat index danger
+        riskScore += 1.5;
+    }
+    // Normal humidity range (30-80%) contributes 0 to risk score
 
-    // Wind speed risk
-    if (weatherData.wind_speed > 15) riskScore += 2;
-    else if (weatherData.wind_speed > 10) riskScore += 1;
+    // --- WIND SPEED RISK ASSESSMENT ---
+    // Based on Beaufort scale and weather service warnings
+    if (weatherData.wind_speed > 20) {
+        // Strong gale force winds - dangerous (>72 km/h)
+        riskScore += 2.5;
+    } else if (weatherData.wind_speed > 13.9) {
+        // Strong breeze to moderate gale (50-72 km/h)
+        riskScore += 1.5;
+    } else if (weatherData.wind_speed > 10.8) {
+        // Fresh/strong breeze (39-49 km/h) - some risk
+        riskScore += 0.5;
+    }
+    // Calm to moderate breeze (<39 km/h) contributes 0 to risk score
 
-    if (riskScore >= 5) return 'High';
-    if (riskScore >= 3) return 'Moderate';
-    return 'Low';
+    // --- RISK CLASSIFICATION ---
+    // Adjusted thresholds for more realistic risk distribution
+    if (riskScore >= 6) {
+        // Multiple severe conditions or one extreme condition
+        return 'High';
+    } else if (riskScore >= 2.5) {
+        // One or two moderate risk factors
+        return 'Moderate';
+    } else {
+        // Normal conditions or minor concerns
+        return 'Low';
+    }
 }
 
 // API endpoint for climate-based heatmap grid
@@ -219,6 +273,15 @@ app.get('/api/climate-grid', async (req, res) => {
 
                 const severity = calculateClimateSeverity(weatherData);
 
+                // Log detailed climate assessment for debugging
+                console.log(`Point [${point.lat.toFixed(2)}, ${point.lon.toFixed(2)}]:`, {
+                    temp: `${weatherData.temperature}°C`,
+                    humidity: `${weatherData.humidity}%`,
+                    wind: `${weatherData.wind_speed} m/s`,
+                    rain: `${weatherData.rainfall} mm`,
+                    severity: severity
+                });
+
                 return {
                     lat: point.lat,
                     lon: point.lon,
@@ -247,7 +310,13 @@ app.get('/api/climate-grid', async (req, res) => {
             timestamp: Date.now()
         });
 
-        console.log(`Generated climate grid with ${gridData.length} points`);
+        // Log risk distribution summary for debugging
+        const riskCounts = { Low: 0, Moderate: 0, High: 0 };
+        gridData.forEach(point => {
+            riskCounts[point.severity] = (riskCounts[point.severity] || 0) + 1;
+        });
+        console.log(`✅ Climate grid generated: ${gridData.length} points | Risk Distribution: Low=${riskCounts.Low}, Moderate=${riskCounts.Moderate}, High=${riskCounts.High}`);
+
         res.json(gridData);
     } catch (error) {
         console.error('Climate Grid API Error:', error);
@@ -365,7 +434,7 @@ IMPORTANT: Write in plain text without any markdown formatting (no asterisks, no
         const data = await response.json();
         const aiExplanation = data.choices[0]?.message?.content || 'Analysis completed.';
 
-        console.log('✅ Groq AI analysis generated successfully');
+        console.log(' Groq AI analysis generated successfully');
 
         // Calculate confidence based on data availability and risk consistency
         let confidence = 75; // Base confidence
@@ -404,7 +473,8 @@ IMPORTANT: Write in plain text without any markdown formatting (no asterisks, no
 app.get('/api/config', (req, res) => {
     res.json({
         awsEndpoint: process.env.AWS_API_ENDPOINT || 'https://j8wnxa1ezd.execute-api.us-east-1.amazonaws.com',
-        nodeEnv: process.env.NODE_ENV || 'development'
+        nodeEnv: process.env.NODE_ENV || 'development',
+        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || ''
     });
 });
 

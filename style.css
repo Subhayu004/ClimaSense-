@@ -791,18 +791,77 @@ body {
     font-size: 0.875rem;
 }
 
+/* From Uiverse.io by Saad3092003 - Animated Send Button */
 #send-message {
-    background: #3b82f6;
+    font-family: inherit;
+    font-size: 14px;
+    background: linear-gradient(to bottom, #4dc7d9 0%, #66a6ff 100%);
     color: white;
+    padding: 0.6em 0.9em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: none;
-    padding: 0.75rem;
-    border-radius: 0.5rem;
+    border-radius: 20px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s;
     cursor: pointer;
-    transition: background 0.2s;
 }
 
 #send-message:hover {
-    background: #2563eb;
+    transform: translateY(-2px);
+    box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.3);
+    padding: 0em;
+    background: linear-gradient(to bottom, #5bd9ec 0%, #97c3ff 100%);
+}
+
+#send-message:active {
+    transform: scale(0.95);
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+#send-message span {
+    display: block;
+    margin-left: 0.3em;
+    transition: all 0.3s;
+}
+
+#send-message:hover span {
+    scale: 0;
+    font-size: 0%;
+    opacity: 0;
+    transition: all 0.5s;
+}
+
+#send-message svg {
+    width: 14px;
+    height: 14px;
+    fill: white;
+    transition: all 0.3s;
+}
+
+#send-message .svg-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.2);
+    transition: all 0.3s;
+}
+
+#send-message:hover .svg-wrapper {
+    background-color: rgba(43, 169, 228, 0.897);
+    width: 40px;
+    height: 40px;
+}
+
+#send-message:hover svg {
+    width: 18px;
+    height: 18px;
+    margin-right: 4px;
+    transform: rotate(45deg);
 }
 
 /* Loading Overlay - Updated with blur */

@@ -25,10 +25,10 @@ async function loadServerConfig() {
         if (response.ok) {
             const config = await response.json();
             AWS_API_BASE = config.awsEndpoint;
-            console.log('✅ Server config loaded. AWS Endpoint:', AWS_API_BASE);
+            console.log(' Server config loaded. AWS Endpoint:', AWS_API_BASE);
         }
     } catch (error) {
-        console.warn('⚠️ Failed to load server config, using fallback:', error);
+        console.warn(' Failed to load server config, using fallback:', error);
     }
 }
 
@@ -654,9 +654,16 @@ class ClimateDashboard {
     }
 
     // Generate risk cloud: create scattered points around a main point for realistic zones
-    generateRiskCloud(point, count, spreadKm, weight) {
+    // CRITICAL: Weight is distributed across points to prevent false high-intensity centers
+    generateRiskCloud(point, count, spreadKm, originalWeight) {
         const points = [];
         const spreadInDegrees = spreadKm / 111.32; // Convert km to degrees (approx)
+
+        // Distribute weight to prevent overlapping points from creating false high-risk zones
+        // LINEAR DISTRIBUTION: Preserves total intensity when points overlap
+        // Example: originalWeight=1, count=50 → each point=0.02, total at center=1 ✅
+        // Previous (sqrt): 1/sqrt(50)=0.14, total=7 ❌ (caused red zones for low risk!)
+        const distributedWeight = originalWeight / count;
 
         for (let i = 0; i < count; i++) {
             // Gaussian distribution for realistic clustering
@@ -669,7 +676,7 @@ class ClimateDashboard {
             points.push({
                 lat: point.lat + offsetLat,
                 lng: point.lng + offsetLng,
-                weight: weight
+                weight: distributedWeight  //  FIXED: distribute weight instead of using full weight
             });
         }
 
@@ -695,7 +702,7 @@ class ClimateDashboard {
         }
 
         // For small datasets, generate risk clouds around each point
-        console.log('Small dataset detected, generating risk clouds');
+        console.log('Small dataset detected, generating risk clouds with distributed weights');
         const expandedPoints = [];
 
         mapData.forEach(point => {
@@ -703,7 +710,7 @@ class ClimateDashboard {
             const cloudSize = 40 + Math.floor(Math.random() * 41); // 40-80 points
             const spreadRadius = 1 + Math.random() * 2; // 1-3 km spread
 
-            console.log(`Generating cloud of ${cloudSize} points with ${spreadRadius.toFixed(2)}km radius for point at [${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}]`);
+            console.log(`Generating cloud of ${cloudSize} points with ${spreadRadius.toFixed(2)}km radius for severity "${point.severity}" (weight: ${point.weight}) at [${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}]`);
 
             const cloudPoints = this.generateRiskCloud(point, cloudSize, spreadRadius, point.weight);
 
@@ -711,12 +718,12 @@ class ClimateDashboard {
             cloudPoints.forEach(cp => {
                 expandedPoints.push({
                     location: new google.maps.LatLng(cp.lat, cp.lng),
-                    weight: cp.weight
+                    weight: cp.weight  // Already distributed in generateRiskCloud
                 });
             });
         });
 
-        console.log('Generated', expandedPoints.length, 'total heatmap points from', mapData.length, 'original points');
+        console.log('✅ Generated', expandedPoints.length, 'total heatmap points from', mapData.length, 'original points with distributed weights');
         return expandedPoints;
     }
 
@@ -822,35 +829,50 @@ class ClimateDashboard {
             });
         }
 
-        // Create Google Maps heatmap layer with PREMIUM configuration
+        // Create Google Maps heatmap layer with REALISTIC RISK-BASED configuration
+        // Weight mapping: 1 = Low (green), 2 = Moderate (yellow), 3 = High (red)
         this.heatLayer = new google.maps.visualization.HeatmapLayer({
             data: heatmapData,
             map: this.map,
-            radius: 60,              // ✅ Increased from 30 for wider coverage
-            opacity: 0.45,           // ✅ Reduced from 0.7 for subtle overlay
-            dissipating: true,       // ✅ NEW - smooth edges
-            maxIntensity: 3,         // ✅ NEW - caps intensity at weight 3 (High severity)
-            // ✅ PREMIUM GRADIENT: green → yellow → orange → red
+            radius: 60,              // Wide coverage for zone-like appearance
+            opacity: 0.5,            // Balanced opacity for clear visibility
+            dissipating: true,       // Smooth edges for natural zones
+            maxIntensity: 3,         // Maximum weight is 3 (High severity)
+            // REALISTIC GRADIENT: Maps weights directly to risk levels
+            // 0-33%: Green (Low risk, weight ~1)
+            // 34-66%: Yellow (Moderate risk, weight ~2)  
+            // 67-100%: Red (High risk, weight ~3)
             gradient: [
-                'rgba(0,255,0,0)',       // Transparent green (0%)
-                'rgba(0,255,0,0.6)',     // Semi-transparent green (10%)
-                'rgba(124,252,0,0.65)',  // Light green (20%)
-                'rgba(173,255,47,0.7)',  // Yellow-green (30%)
-                'rgba(255,255,0,0.7)',   // Yellow (40%)
-                'rgba(255,215,0,0.75)',  // Gold (50%)
-                'rgba(255,165,0,0.8)',   // Orange (60%)
-                'rgba(255,140,0,0.85)',  // Dark orange (70%)
-                'rgba(255,69,0,0.9)',    // Red-orange (80%)
-                'rgba(255,0,0,0.9)'      // Red (90-100%)
+                'rgba(0,255,0,0)',         // 0% - Transparent (no data)
+                'rgba(0,255,0,0.3)',       // 5% - Very light green
+                'rgba(0,255,0,0.5)',       // 10% - Light green
+                'rgba(0,255,0,0.7)',       // 15% - Green (Low risk starts)
+                'rgba(50,205,50,0.75)',    // 20% - Medium green
+                'rgba(34,139,34,0.8)',     // 25% - Forest green  
+                'rgba(124,252,0,0.75)',    // 30% - Yellow-green (transition)
+                'rgba(173,255,47,0.75)',   // 35% - Green-yellow
+                'rgba(255,255,0,0.7)',     // 40% - Yellow (Moderate risk starts)
+                'rgba(255,215,0,0.75)',    // 45% - Gold
+                'rgba(255,200,0,0.75)',    // 50% - Golden yellow
+                'rgba(255,180,0,0.8)',     // 55% - Orange-yellow
+                'rgba(255,165,0,0.8)',     // 60% - Orange (transition)
+                'rgba(255,140,0,0.8)',     // 65% - Dark orange
+                'rgba(255,100,0,0.85)',    // 70% - Red-orange (High risk starts)
+                'rgba(255,69,0,0.85)',     // 75% - Orange-red
+                'rgba(255,50,0,0.9)',      // 80% - Red
+                'rgba(255,20,0,0.9)',      // 85% - Bright red
+                'rgba(255,0,0,0.9)',       // 90% - Pure red
+                'rgba(220,0,0,0.95)',      // 95% - Dark red
+                'rgba(180,0,0,1.0)'        // 100% - Deep red (extreme)
             ]
         });
 
-        console.log('✅ Premium Google Maps heatmap layer created with:');
-        console.log('   - Radius: 60 (zone-like coverage)');
-        console.log('   - Opacity: 0.45 (subtle overlay)');
-        console.log('   - Dissipating: true (smooth edges)');
-        console.log('   - MaxIntensity: 3 (High severity cap)');
-        console.log('   - Premium gradient: green → yellow → orange → red');
+        console.log('✅ Realistic climate risk heatmap created with:');
+        console.log('   - Radius: 60 (zone coverage)');
+        console.log('   - Opacity: 0.5 (balanced visibility)');
+        console.log('   - MaxIntensity: 3 (weight scale: 1=Low, 2=Moderate, 3=High)');
+        console.log('   - Gradient: Green (0-33%) → Yellow (34-66%) → Red (67-100%)');
+        console.log('   - Color mapping: Weight 1=Green, Weight 2=Yellow, Weight 3=Red');
     }
 
     // NEW: Switch between Regional and User Location heatmap layers
@@ -966,7 +988,7 @@ class ClimateDashboard {
             ]
         });
 
-        console.log('✅ User location heatmap layer created');
+        console.log(' User location heatmap layer created');
     }
 
     toggleMapMode(isHeatmap) {
@@ -1069,9 +1091,9 @@ class ClimateDashboard {
 
             // Still try to get AI explanation with fallback data
             try {
-                console.log('🤖 Attempting Groq AI analysis with fallback risk data...');
+                console.log(' Attempting Groq AI analysis with fallback risk data...');
                 const aiExplanation = await this.fetchAIExplanation(fallbackRiskData);
-                console.log('✅ Groq AI explanation received:', aiExplanation);
+                console.log(' Groq AI explanation received:', aiExplanation);
 
                 this.updateVerdictCard({
                     riskLevel: this.calculateOverallRisk(fallbackRiskData),
@@ -1079,7 +1101,7 @@ class ClimateDashboard {
                     summary: aiExplanation.explanation || aiExplanation.summary || 'Climate risk assessment based on current conditions.'
                 });
             } catch (aiError) {
-                console.warn('⚠️ AI explanation also failed, using basic fallback:', aiError);
+                console.warn(' AI explanation also failed, using basic fallback:', aiError);
                 // Ultimate fallback - no AI available
                 this.updateVerdictCard({
                     riskLevel: 'moderate',

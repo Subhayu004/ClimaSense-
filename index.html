@@ -224,7 +224,7 @@
                 <!-- AI Assistant -->
                 <div class="ai-assistant">
                     <div class="assistant-header">
-                        <h3><i class="fas fa-robot"></i> AI Climate Assistant</h3>
+                        <h3><i class="fas fa-robot"></i> ClimaAI</h3>
                         <button class="minimize-btn" id="minimize-assistant">
                             <i class="fas fa-minus"></i>
                         </button>
@@ -236,7 +236,8 @@
                                     <i class="fas fa-robot"></i>
                                 </div>
                                 <div class="message-content">
-                                    Hello! I'm your AI climate assistant. Ask me anything about climate risks, trends,
+                                    Hello! I'm ClimaAI, your climate assistant. Ask me anything about climate risks,
+                                    trends,
                                     or
                                     environmental data for your region.
                                 </div>
@@ -244,8 +245,20 @@
                         </div>
                         <div class="chat-input-container">
                             <input type="text" id="chat-input" placeholder="Ask about climate risks...">
+                            <!-- From Uiverse.io by Saad3092003 -->
                             <button id="send-message">
-                                <i class="fas fa-paper-plane"></i>
+                                <div class="svg-wrapper-1">
+                                    <div class="svg-wrapper">
+                                        <svg height="24" width="24" viewBox="0 0 24 24"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M0 0h24v24H0z" fill="none"></path>
+                                            <path
+                                                d="M1.946 9.315c-.522-.174-.527-.455.01-.634l19.087-6.362c.529-.176.832.12.684.638l-5.454 19.086c-.15.529-.455.547-.679.045L12 14l6-8-8 6-8.054-2.685z"
+                                                fill="currentColor"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <span>Send</span>
                             </button>
                         </div>
                     </div>
@@ -408,10 +421,29 @@
 
 
         <!-- Google Maps JavaScript API with Visualization Library -->
-        <script
-            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyANVy0DaoP9XvL_9T2NAUXx_UW1UgX3_7k&libraries=visualization"
-            async defer>
-            </script>
+        <!-- API key loaded dynamically from backend for security -->
+        <script>
+            // Load Google Maps API key from backend config
+            (async function loadGoogleMapsAPI() {
+                try {
+                    const response = await fetch('/api/config');
+                    const config = await response.json();
+                    const apiKey = config.googleMapsApiKey;
+
+                    if (apiKey) {
+                        const script = document.createElement('script');
+                        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=visualization`;
+                        script.async = true;
+                        script.defer = true;
+                        document.head.appendChild(script);
+                    } else {
+                        console.error('Google Maps API key not found in config');
+                    }
+                } catch (error) {
+                    console.error('Failed to load Google Maps API config:', error);
+                }
+            })();
+        </script>
         <!-- Chart.js -->
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script src="script.js"></script>
