@@ -1220,21 +1220,25 @@ body {
 }
 
 /* Footer - Glassmorphism */
+/* Footer - Glassmorphism with Floating Effect */
 .footer {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    color: #0f172a;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: #64748b;
     text-align: center;
-    padding: 1.5rem;
+    padding: 1rem 1.5rem;
     margin-top: auto;
-    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
 }
 
 .footer p {
     margin: 0;
-    font-size: 0.875rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 400;
+    opacity: 0.85;
+    letter-spacing: 0.3px;
 }
 
 /* Profile Modal */
